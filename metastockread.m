@@ -115,8 +115,8 @@ pathname = fullpath(1:find(fullpath == '\',1,'last'));
 pathname = strrep(pathname, '\','\\');
 
 % Create list of filenames
-if Out(1).datNum < 256; fmt = 'F%d.DAT\n';
-else                    fmt = 'F%d.MWD\n'; end
+if Out(1).datNum < 256; fmt = 'F%d.DAT';
+else                    fmt = 'F%d.MWD'; end
 names = dataread('string',sprintf([pathname fmt],cat(1,Out.datNum)),'%s','delimiter','\n');
 
 % Files to process
@@ -148,10 +148,10 @@ for n = 1:numOut
     % Format the date and time into one datenum column (the first)
     [d,m,y] = partNumDate(Out(n).data(:,1));
     if nfields == 8
-        h = fix(Out(n).data(:,2)/1e4);
-        m = fix(mod(Out(n).data(:,2)/1e2,1e2));
+        H = fix(Out(n).data(:,2)/1e4);
+        M = fix(mod(Out(n).data(:,2)/1e2,1e2));
         Out(n).data = Out(n).data(:,[1 3:8]);
-        Out(n).data(:,1) = datenummx(y,m,d,h,m,0);
+        Out(n).data(:,1) = datenummx(y,m,d,H,M,0);
     else
         Out(n).data(:,1) = datenummx(y,m,d);
     end
