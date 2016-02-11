@@ -131,9 +131,9 @@ for n = 1:numOut
     % Open file
     fid = fopen(names{n},'r','b');
         
-    % If file not found leave NaN and skip to next security
+    % If file not found leave empty data
     if fid == -1
-        Out(n).data = NaN;
+        Out(ii).data = [];
         continue
     end    
     % Retrieve the number of records
