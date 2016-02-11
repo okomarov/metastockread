@@ -83,6 +83,8 @@ if nargin == 0
 elseif nargin == 1 
     % Check
     if ~ischar(fullpath)
+        [pathname,filename] = fileparts(fullpath);
+    else
         error('metastockread:strFullpath','FULLPATH should be a string.')
     end
 % ELSE error    
@@ -115,9 +117,12 @@ pathname = fullpath(1:find(fullpath == '\',1,'last'));
 pathname = strrep(pathname, '\','\\');
 
 % Create list of filenames
-if Out(1).datNum < 256; fmt = 'F%d.DAT';
-else                    fmt = 'F%d.MWD'; end
-names = dataread('string',sprintf([pathname fmt],cat(1,Out.datNum)),'%s','delimiter','\n');
+if Out(1).datNum < 256;
+    filelist = dir(fullfile(pathname,'F*.DAT'));
+else
+    filelist = dir(fullfile(pathname,'F*.MWD'));
+end
+names = fullfile(pathname,{filelist.name})';
 
 % Files to process
 numOut = numel(Out);
