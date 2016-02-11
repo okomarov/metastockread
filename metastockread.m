@@ -2,16 +2,16 @@ function Out = metastockread(fullpath)
 
 % METASTOCKREAD Read metastock files (symbols index files: master, emaster, xmaster; data files: .dat and .mwd)
 %
-%   METASTOCKREAD Select with UIGETFILE the metastock file to read. 
+%   METASTOCKREAD Select with UIGETFILE the metastock file to read.
 %                 maetastockread() remembers the last selected file.
 %
-%   METASTOCKREAD(FULLPATH) Read metastock file FULLPATH to output struct OUT. 
+%   METASTOCKREAD(FULLPATH) Read metastock file FULLPATH to output struct OUT.
 %                           The FULLPATH input is a string enclosed in single quotes.
 %
 %   OUT = metastockread(...)
-%       OUT is a "m by 1" NON-scalar structure, where "m" is the # of .dat/.mwd files in the same directory 
+%       OUT is a "m by 1" NON-scalar structure, where "m" is the # of .dat/.mwd files in the same directory
 %       of the symbol index files.
-%       
+%
 %       The (sub)scalar structure has the following fields:
 %           - datNum : # of the .dat/.mwd file with the data                           UINT16
 %           - symbol : security symbol                                                 CHAR
@@ -21,7 +21,7 @@ function Out = metastockread(fullpath)
 %           - freq   : time freq. of the data I (intraday), D (daily), W, M, Q or Y    CHAR
 %           - idFreq : intraday time frequency in minutes                              UINT8
 %           - data   : time series data with variable number of fields (columns)       DOUBLE
-%   
+%
 %       The data field columns follow the schema:
 %
 %       | Date/Time* | Open | High | Low | Close | Volume | OpenInterest |
@@ -36,14 +36,14 @@ function Out = metastockread(fullpath)
 %
 %     Out2 = metastockread('MSdatasample directory\Emaster'); % Read in data associated with the Emaster
 %     Out3 = metastockread('MSdatasample directory\Xmaster'); % Read in data associated with the Xmaster
-%     Out  = [Out2; Out3];                                    % Concatenate results 
-%     
+%     Out  = [Out2; Out3];                                    % Concatenate results
+%
 %     whos Out2
 %     Name        Size              Bytes  Class     Attributes
-%     Out1       255x1            1911591  struct       
+%     Out1       255x1            1911591  struct
 %
 %     Out1(1,1)
-%     ans = 
+%     ans =
 %         datNum: 1
 %         symbol: 'ASR'
 %           name: 'A.S. ROMA'
@@ -58,36 +58,34 @@ function Out = metastockread(fullpath)
 %
 % See also: FREAD, TYPECAST, BITGET, DATESTR, DATENUM
 
-% Author: Oleg Komarov (oleg.komarov@hotmail.it) 
-% Tested on R14SP3 (7.1) and on R2009b. In-between compatibility is assumed. 
-% Platform tested: WIN. If the fcn doesn't work on other platforms please report. 
+% Author: Oleg Komarov (oleg.komarov@hotmail.it)
+% Tested on R14SP3 (7.1) and on R2009b. In-between compatibility is assumed.
+% Platform tested: WIN. If the fcn doesn't work on other platforms please report.
 % 06 sep 2010 - Created
 % 09 sep 2010 - Added link to FEX page and edit example.
 
-% Use a global variable to remember last opened file
+% Remember last opened file
 global alreadyOpenedFile
 
-% IF no inputs 
-if nargin == 0 
+if nargin == 0
     % Select a symbols index file with uigetfile
     [filename, pathname] = uigetfile({'Emaster;Master;Xmaster','Metastock files'},'Load metastock file', alreadyOpenedFile);
-    fullpath = [pathname filename];
-    alreadyOpenedFile = fullpath;
-    % No file has been selected
+    fullpath             = fullfile(pathname, filename);
+    alreadyOpenedFile    = fullpath;
+
     if filename == 0
         disp([char(13) 'The user selected CANCEL.' char(13)])
         alreadyOpenedFile = [];
         return
     end
-% IF one input    
-elseif nargin == 1 
-    % Check
-    if ~ischar(fullpath)
+
+elseif nargin == 1
+    if ischar(fullpath)
         [pathname,filename] = fileparts(fullpath);
     else
         error('metastockread:strFullpath','FULLPATH should be a string.')
     end
-% ELSE error    
+
 else
     error('metastockread:ninput','Too many input arguments.')
 end
@@ -97,26 +95,22 @@ fid = fopen(fullpath,'r','b');
 if fid == -1
     error('metastockread:invalidFullpath','Invalid FULLPATH. File not found.')
 end
+cleanupFid = onCleanup(@()fclose(fid));
 
 % Read symbols index file: MASTER, EMASTER or XMASTER
-if     regexpi(fullpath,'\w*\\master')
-    Out = readMaster(fid);
-elseif regexpi(fullpath,'\w*\\emaster')
-    Out = readEmaster(fid);
-elseif regexpi(fullpath,'\w*\\xmaster')
-    Out = readXmaster(fid);
-else 
-    error('metastockread:namefile','The name of the file should be either MASTER, EMASTER or XMASTER.')
+switch lower(filename)
+    case 'master'
+        Out = readMaster(fid);
+    case 'emaster'
+        Out = readEmaster(fid);
+    case 'xmaster'
+        Out = readXmaster(fid);
+    otherwise
+        error('metastockread:namefile','The name of the file should be either MASTER, EMASTER or XMASTER.')
 end
+delete(cleanupFid)
 
-% Close fid
-fclose(fid);
-
-% Retrieve data files that reside on the same path as the symbols index file selected
-pathname = fullpath(1:find(fullpath == '\',1,'last'));
-pathname = strrep(pathname, '\','\\');
-
-% Create list of filenames
+% List data files
 if Out(1).datNum < 256;
     filelist = dir(fullfile(pathname,'F*.DAT'));
 else
@@ -124,45 +118,43 @@ else
 end
 names = fullfile(pathname,{filelist.name})';
 
-% Files to process
 numOut = numel(Out);
-for n = 1:numOut
-    
-    % Open file
-    fid = fopen(names{n},'r','b');
-        
+for ii = 1:numOut
+    fid        = fopen(names{ii},'r','b');
+    cleanupFid = onCleanup(@()fclose(fid));
+
     % If file not found leave empty data
     if fid == -1
         Out(ii).data = [];
         continue
-    end    
-    % Retrieve the number of records
+    end
+
+    % Retrieve the number of records and fields
     fseek(fid,2,'bof');
     numRecs = double(typecast(fread(fid,2,'*uint8'),'uint16'));
-    % Retrieve the number of fields
     fseek(fid,0,'eof');
     nfields = ftell(fid)/(numRecs*4);
-    
-    % Skip header 
+
+    % Skip header
     fseek(fid,nfields*4,'bof');
-    
+
     % Retrieve all data at once; the FULL info set would be organized as follows:
-    % | Date / Time | Open | High | Low | Close | Volume | OpenInterest | 
-    Out(n).data = reshape(mbf2ieee(fread(fid,(numRecs-1)*nfields*4,'*uint8')), nfields, numRecs-1).';
-    
+    % | Date / Time | Open | High | Low | Close | Volume | OpenInterest |
+    Out(ii).data = reshape(mbf2ieee(fread(fid,(numRecs-1)*nfields*4,'*uint8')), nfields, numRecs-1).';
+
     % Format the date and time into one datenum column (the first)
-    [d,m,y] = partNumDate(Out(n).data(:,1));
+    [d,m,y] = partNumDate(Out(ii).data(:,1));
     if nfields == 8
-        H = fix(Out(n).data(:,2)/1e4);
-        M = fix(mod(Out(n).data(:,2)/1e2,1e2));
-        Out(n).data = Out(n).data(:,[1 3:8]);
-        Out(n).data(:,1) = datenummx(y,m,d,H,M,0);
+        H                 = fix(Out(ii).data(:,2)/1e4);
+        M                 = fix(mod(Out(ii).data(:,2)/1e2,1e2));
+        Out(ii).data      = Out(ii).data(:,[1 3:8]);
+        Out(ii).data(:,1) = datenummx(y,m,d,H,M,0);
     else
-        Out(n).data(:,1) = datenummx(y,m,d);
+        Out(ii).data(:,1) = datenummx(y,m,d);
     end
-                                 
+
     % Close fid
-    fclose(fid);
+    delete(cleanupFid)
 end
 end
 
@@ -202,7 +194,7 @@ Out = struct('datNum', num2cell(uint16(tmp(3,:).'))                             
              'idFreq', num2cell(tmp(63,:).'));
 
 end
-    
+
 % ------------------------------------------------------------------------------------------------------------
 % READXMASTER - Read xmaster file
 % ------------------------------------------------------------------------------------------------------------
@@ -210,10 +202,10 @@ function Out = readXmaster(fid)
 % Skip header (each record is 192 bytes long)
 fseek(fid,150,'bof');
 % Read in the whole file
-tmp = fread(fid,[150,inf],'*uint8');
+tmp        = fread(fid,[150,inf],'*uint8');
 % Names (trim unuseful chars; observed behavior only in Xmaster)
-names = cellfun(@(x) char(x(1:find(x == 0,1,'first'))), num2cell(tmp(17:39,:).',2),'un',0) ;
-idx   = cellfun('isempty',names);
+names      = cellfun(@(x) char(x(1:find(x == 0,1,'first'))), num2cell(tmp(17:39,:).',2),'un',0) ;
+idx        = cellfun('isempty',names);
 names(idx) = cellstr(char(tmp(17:39,idx).'));
 % Select and convert useful info
 Out = struct('datNum', num2cell(typecast(reshape(tmp(66:67,:),[],1),'uint16'))              ,...
@@ -232,19 +224,19 @@ function ieee = mbf2ieee(mbf)
 % Convert a 32 bit Microsoft Basic Float into a IEEE double of the form (C)YYMMDD (ex: 990123 or 1010123)
 
 % Layout of a MBF:
-% 
+%
 % MBF __________|__Byte 4 __|__Byte 3 __|__Byte 2 __|__Byte 1 __|
 % Position bit__| 32 ... 24 | 23 ... 16 | 15 .. . 8 | 7 . . . 0 |
 % Value in bit__| EEEE EEEE | XMMM MMMM | MMMM MMMM | MMMM MMMM |
-% 
+%
 % Components:
 % X = sign bit
 % E = 8 bit exponent
 % M = 23 bit mantissa
 
 % Cast into uint32 combining the 4 bytes and convert to double
-mbf           = double(typecast(mbf(:),'uint32'));                          
-mantissa_mask =   16777215;                                    % (2^24-1) bottom 24 bits holds the mantissa
+mbf           = double(typecast(mbf(:),'uint32'));
+mantissa_mask = 16777215;                                    % (2^24-1) bottom 24 bits holds the mantissa
 exponent_mask = 4278190080;                                    % bitxor(2^32-1,mask1) top 8 bits holds the exponent
 mantissa      = bitset  (bitand(mbf,mantissa_mask), 24)    ;   % restore hidden bit
 exponent      = bitshift(bitand(mbf,exponent_mask),-24)-152;   % scale exponent
@@ -258,10 +250,10 @@ end
 % ------------------------------------------------------------------------------------------------------------
 function strdate = fmtStrDate(n)
 % Add 1900 if is YYMMDD (ex: 990123 --> 1999-01-23) or CYYMMDD (ex:1010123 --> 2001-01-23) or leave YYYYMMDD (ex: 19990123)
-strdate = sprintf('%d-%02d-%02d',[1900*(~fix(n/1e7)) + fix(n/1e4),fix(mod(n/1e2,1e2)),mod(n,1e2)].');
-strdate = cellstr(reshape(strdate(:),10,[]).');
+strdate       = sprintf('%d-%02d-%02d',[1900*(~fix(n/1e7)) + fix(n/1e4),fix(mod(n/1e2,1e2)),mod(n,1e2)].');
+strdate       = cellstr(reshape(strdate(:),10,[]).');
 % Place 'none' if 0
-none = n == 0;
+none          = n == 0;
 strdate(none) = {'none'};
 end
 
@@ -270,10 +262,10 @@ end
 % ------------------------------------------------------------------------------------------------------------
 function [d,m,y] = partNumDate(n)
 % Day, month and year
-d = mod(n,1e2);
-m = fix(mod(n/1e2,1e2));
-y = fix(n/1e4);
+d      = mod(n,1e2);
+m      = fix(mod(n/1e2,1e2));
+y      = fix(n/1e4);
 % If the number is supplied as YYMMDD (ex: 990123) or CYYMMDD (ex:1010123 --> 2001-01-23) instead of YYYYMMDD (ex: 19990123)
-idx = ~fix(n/1e7);
+idx    = ~fix(n/1e7);
 y(idx) = y(idx) +1900;
 end
