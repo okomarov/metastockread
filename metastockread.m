@@ -110,17 +110,17 @@ switch lower(filename)
 end
 delete(cleanupFid)
 
-% List data files
-if Out(1).datNum < 256;
-    filelist = dir(fullfile(pathname,'F*.DAT'));
+% Extension of the data files
+if Out(end).datNum < 255;
+    ext = 'DAT';
 else
-    filelist = dir(fullfile(pathname,'F*.MWD'));
+    ext = 'MWD';
 end
-names = fullfile(pathname,{filelist.name})';
 
 numOut = numel(Out);
 for ii = 1:numOut
-    fid        = fopen(names{ii},'r','b');
+    name       = fullfile(pathname, sprintf('F%d.%s', Out(ii).datNum, ext));
+    fid        = fopen(name,'r','b');
     cleanupFid = onCleanup(@()fclose(fid));
 
     % If file not found leave empty data
