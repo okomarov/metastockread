@@ -108,7 +108,6 @@ switch lower(filename)
     otherwise
         error('metastockread:namefile','The name of the file should be either MASTER, EMASTER or XMASTER.')
 end
-delete(cleanupFid)
 
 % Extension of the data files
 if Out(end).datNum < 255;
@@ -152,9 +151,6 @@ for ii = 1:numOut
     else
         Out(ii).data(:,1) = datenummx(y,m,d);
     end
-
-    % Close fid
-    delete(cleanupFid)
 end
 end
 
