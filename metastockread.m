@@ -109,15 +109,14 @@ switch lower(filename)
         error('metastockread:namefile','The name of the file should be either MASTER, EMASTER or XMASTER.')
 end
 
-% Extension of the data files
-if Out(end).datNum < 255;
-    ext = 'DAT';
-else
-    ext = 'MWD';
-end
-
 numOut = numel(Out);
 for ii = 1:numOut
+    % Extension of the data files
+    if Out(ii).datNum <= 255;
+        ext = 'DAT';
+    else
+        ext = 'MWD';
+    end
     name       = fullfile(pathname, sprintf('F%d.%s', Out(ii).datNum, ext));
     fid        = fopen(name,'r','b');
     cleanupFid = onCleanup(@()fclose(fid));
