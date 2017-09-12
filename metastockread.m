@@ -58,11 +58,9 @@ function Out = metastockread(fullpath)
 %
 % See also: FREAD, TYPECAST, BITGET, DATESTR, DATENUM
 
-% Author: Oleg Komarov (oleg.komarov@hotmail.it)
-% Tested on R14SP3 (7.1) and on R2009b. In-between compatibility is assumed.
+% Author: Oleg Komarov (oleg.komarov@hotmail.it) Copyright 2010-2017
+% Tested on R14SP3 (7.1) and on R2016b. In-between compatibility is assumed.
 % Platform tested: WIN. If the fcn doesn't work on other platforms please report.
-% 06 sep 2010 - Created
-% 09 sep 2010 - Added link to FEX page and edit example.
 
 % Remember last opened file
 global alreadyOpenedFile
@@ -200,19 +198,15 @@ function Out = readXmaster(fid)
 % Skip header (each record is 192 bytes long)
 fseek(fid,150,'bof');
 % Read in the whole file
-tmp        = fread(fid,[150,inf],'*uint8');
-% Names (trim unuseful chars; observed behavior only in Xmaster)
-names      = cellfun(@(x) char(x(1:find(x == 0,1,'first'))), num2cell(tmp(17:39,:).',2),'un',0) ;
-idx        = cellfun('isempty',names);
-names(idx) = cellstr(char(tmp(17:39,idx).'));
+tmp = fread(fid,[150,inf],'*uint8');
 % Select and convert useful info
-Out = struct('datNum', num2cell(typecast(reshape(tmp(66:67,:),[],1),'uint16'))              ,...
-             'symbol', cellstr(char(tmp(2:15,:).'))                                         ,...
-             'name'  , names                                                                ,...
-             'inDate', fmtStrDate(single(typecast(reshape(tmp(109:112,:),[],1),'uint32')))  ,...
-             'fiDate', fmtStrDate(single(typecast(reshape(tmp(117:120,:),[],1),'uint32')))  ,...
-             'freq'  , cellstr(char(tmp(63,:).'))                                           ,...
-             'idFreq', num2cell(tmp(65,:).'));
+Out = struct('datNum'  , num2cell(typecast(reshape(tmp(66:67,:),[],1),'uint16'))              ,...
+             'symbol'  , cellstr(char(tmp(2:15,:).'))                                         ,...
+             'fullname', cellstr(char(tmp(17:62,:)).')                                        ,...
+             'inDate'  , fmtStrDate(single(typecast(reshape(tmp(109:112,:),[],1),'uint32')))  ,...
+             'fiDate'  , fmtStrDate(single(typecast(reshape(tmp(117:120,:),[],1),'uint32')))  ,...
+             'freq'    , cellstr(char(tmp(63,:).'))                                           ,...
+             'idFreq'  , num2cell(tmp(65,:).'));
 end
 
 % ------------------------------------------------------------------------------------------------------------
